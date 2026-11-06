@@ -72,7 +72,9 @@ CREATE TABLE `inmuebles` (
     `habitaciones` TINYINT UNSIGNED NOT NULL DEFAULT 1 COMMENT 'Cantidad de alcobas o habitaciones',
     `banos` TINYINT UNSIGNED NOT NULL DEFAULT 1 COMMENT 'Número de baños completos o sociales',
     `area_m2` DECIMAL(8,2) NOT NULL COMMENT 'Área privada o construida en metros cuadrados',
-    `estado` ENUM('DISPONIBLE', 'RESERVADO', 'ARRENDADO', 'MANTENIMIENTO') NOT NULL DEFAULT 'DISPONIBLE' COMMENT 'Estado operativo en el pipeline Houm',
+    `estado` ENUM('DISPONIBLE', 'EN_PROCESO_RESERVA', 'RESERVADO', 'ARRENDADO', 'MANTENIMIENTO') NOT NULL DEFAULT 'DISPONIBLE' COMMENT 'Estado operativo en el pipeline Houm',
+    `reserva_expira_at` DATETIME NULL COMMENT 'Vencimiento de la reserva temporal (EN_PROCESO_RESERVA)',
+    `reserva_usuario_id` INT UNSIGNED NULL COMMENT 'Usuario que inició la reserva temporal',
     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT 'Fecha de publicación o consignación',
     `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'Última actualización de datos del inmueble',
     
@@ -81,6 +83,11 @@ CREATE TABLE `inmuebles` (
         FOREIGN KEY (`propietario_id`) REFERENCES `usuarios` (`id`)
         ON UPDATE CASCADE
         ON DELETE RESTRICT,
+
+    CONSTRAINT `fk_inmuebles_reserva_usuario`
+        FOREIGN KEY (`reserva_usuario_id`) REFERENCES `usuarios` (`id`)
+        ON UPDATE CASCADE
+        ON DELETE SET NULL,
         
     -- Restricción de Dominio (Estratos válidos en Colombia)
     CONSTRAINT `chk_inmuebles_estrato` 
@@ -88,6 +95,7 @@ CREATE TABLE `inmuebles` (
         
     -- Índices para optimización de filtros en catálogo web
     INDEX `idx_inmuebles_estado` (`estado`),
+    INDEX `idx_inmuebles_expira` (`estado`, `reserva_expira_at`),
     INDEX `idx_inmuebles_tipo_ciudad` (`tipo`, `ciudad`),
     INDEX `idx_inmuebles_precios` (`precio_canon`, `precio_venta`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Inventario inmobiliario disponible y en gestión';

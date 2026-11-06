@@ -8,9 +8,10 @@ $mostrarExito = !empty($_SESSION['exito']);
 unset($_SESSION['exito']);
 $badges = [
     'DISPONIBLE' => ['success', 'Disponible'],
-    'RESERVADO' => ['secondary', 'Reservado'],
-    'ARRENDADO' => ['dark', 'Arrendado'],
-    'MANTENIMIENTO' => ['danger', 'Mantenimiento'],
+    'EN_PROCESO_RESERVA' => ['warning', 'En proceso'],
+    'RESERVADO' => ['primary', 'Reservado'],
+    'ARRENDADO' => ['danger', 'Arrendado'],
+    'MANTENIMIENTO' => ['secondary', 'Mantenimiento'],
 ];
 $zonas = array_values(array_unique(array_filter(array_map(fn($i) => trim($i['ciudad'] ?? ''), $inmuebles))));
 if (!in_array('Bogotá', $zonas, true)) {

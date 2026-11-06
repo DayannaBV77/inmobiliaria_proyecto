@@ -64,6 +64,7 @@ $whatsapp = 'https://wa.me/57' . $telefono;
             <h1 class="h3 fw-bold"><?= htmlspecialchars($tituloInmueble, ENT_QUOTES, 'UTF-8') ?></h1>
             <div class="fs-3 fw-bold text-primary mb-2"><?= $precio ?></div>
             <p class="text-muted"><i class="bi bi-geo-alt me-1"></i><?= htmlspecialchars(($inmueble['direccion'] ?? '') . ', ' . ($inmueble['ciudad'] ?? 'Bogotá'), ENT_QUOTES, 'UTF-8') ?></p>
+            <p class="small text-muted"><i class="bi bi-clock-history me-1"></i>Última actualización del estado: <?= htmlspecialchars($inmueble['updated_at'] ?? '', ENT_QUOTES, 'UTF-8') ?></p>
             <ul class="list-group list-group-flush mb-4">
                 <li class="list-group-item d-flex justify-content-between px-0"><span><i class="bi bi-moon-stars text-primary me-2"></i>Habitaciones</span><strong><?= (int) ($inmueble['habitaciones'] ?? 0) ?></strong></li>
                 <li class="list-group-item d-flex justify-content-between px-0"><span><i class="bi bi-droplet text-primary me-2"></i>Baños</span><strong><?= (int) ($inmueble['banos'] ?? 0) ?></strong></li>
@@ -73,10 +74,17 @@ $whatsapp = 'https://wa.me/57' . $telefono;
             <h2 class="h6 fw-bold">Descripción</h2>
             <p class="text-muted mb-4"><?= nl2br(htmlspecialchars($inmueble['descripcion'] ?? '', ENT_QUOTES, 'UTF-8')) ?></p>
             <div class="d-grid gap-2">
-                <a class="btn btn-primary py-2" href="index.php?url=login"><i class="bi bi-calendar-plus me-2"></i>Agendar visita</a>
+                <?php if ($usuario): ?>
+                    <form method="post" action="index.php?controller=publico&action=reservar">
+                        <input type="hidden" name="id" value="<?= (int) ($inmueble['id'] ?? 0) ?>">
+                        <button class="btn btn-primary w-100 py-2" type="submit"><i class="bi bi-lock me-2"></i>Reservar por 24 horas</button>
+                    </form>
+                <?php else: ?>
+                    <a class="btn btn-primary py-2" href="index.php?url=login"><i class="bi bi-lock me-2"></i>Reservar por 24 horas</a>
+                    <small class="text-muted">Para reservar o agendar la visita necesitas iniciar sesión.</small>
+                <?php endif; ?>
                 <a class="btn btn-outline-primary py-2" href="<?= $whatsapp ?>" target="_blank" rel="noopener"><i class="bi bi-whatsapp me-2"></i>Contactar asesor</a>
             </div>
-            <small class="text-muted d-block mt-2">Para agendar la visita necesitas iniciar sesión.</small>
         </div>
     </div>
 </main>

@@ -82,6 +82,14 @@ $beneficios = [
     </section>
 
     <section id="catalogo" class="mb-5">
+        <?php if (!empty($_SESSION['exito'])): ?>
+            <div class="alert alert-success rounded-4"><i class="bi bi-check-circle me-2"></i><?= htmlspecialchars($_SESSION['exito'], ENT_QUOTES, 'UTF-8') ?></div>
+            <?php unset($_SESSION['exito']); ?>
+        <?php endif; ?>
+        <?php if (!empty($_SESSION['error'])): ?>
+            <div class="alert alert-danger rounded-4"><i class="bi bi-exclamation-circle me-2"></i><?= htmlspecialchars($_SESSION['error'], ENT_QUOTES, 'UTF-8') ?></div>
+            <?php unset($_SESSION['error']); ?>
+        <?php endif; ?>
         <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
             <h2 class="h3 fw-bold mb-0">Inmuebles disponibles</h2>
             <span class="text-muted"><?= count($inmuebles) ?> resultado(s)</span>
@@ -150,15 +158,16 @@ $beneficios = [
                             <div class="card-body d-flex flex-column">
                                 <div class="d-flex justify-content-between align-items-start gap-2">
                                     <h3 class="h6 fw-bold mb-0"><?= htmlspecialchars($inmueble['titulo'], ENT_QUOTES, 'UTF-8') ?></h3>
-                                    <span class="badge bg-primary text-capitalize"><?= htmlspecialchars($inmueble['tipo'], ENT_QUOTES, 'UTF-8') ?></span>
+                                    <span class="badge bg-success">Disponible</span>
                                 </div>
                                 <div class="fw-bold text-primary fs-5 my-2">$<?= number_format((float) ($inmueble['precio_canon'] ?? 0), 0, ',', '.') ?>/mes</div>
                                 <p class="text-muted small mb-2"><i class="bi bi-geo-alt me-1"></i><?= htmlspecialchars($inmueble['direccion'], ENT_QUOTES, 'UTF-8') ?>, <?= htmlspecialchars($inmueble['ciudad'], ENT_QUOTES, 'UTF-8') ?></p>
-                                <p class="small text-muted mb-3">
+                                <p class="small text-muted mb-1">
                                     <i class="bi bi-moon-stars me-1"></i><?= (int) $inmueble['habitaciones'] ?>
                                     <i class="bi bi-droplet ms-2 me-1"></i><?= (int) $inmueble['banos'] ?>
                                     <i class="bi bi-rulers ms-2 me-1"></i><?= number_format((float) $inmueble['area_m2'], 0) ?> m²
                                 </p>
+                                <p class="small text-muted mb-3"><i class="bi bi-clock-history me-1"></i>Actualizado: <?= htmlspecialchars(substr($inmueble['updated_at'] ?? '', 0, 16), ENT_QUOTES, 'UTF-8') ?></p>
                                 <a class="btn btn-primary w-100 mt-auto" href="index.php?controller=publico&action=detalle&id=<?= (int) $inmueble['id'] ?>">Ver detalle</a>
                             </div>
                         </article>

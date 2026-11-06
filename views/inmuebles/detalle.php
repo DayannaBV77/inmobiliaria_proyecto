@@ -5,9 +5,10 @@ $rutaActiva = 'inmuebles';
 $inmueble = $inmueble ?? [];
 $badges = [
     'DISPONIBLE' => ['success', 'Disponible'],
-    'RESERVADO' => ['secondary', 'Reservado'],
-    'ARRENDADO' => ['dark', 'Arrendado'],
-    'MANTENIMIENTO' => ['danger', 'Mantenimiento'],
+    'EN_PROCESO_RESERVA' => ['warning', 'En proceso'],
+    'RESERVADO' => ['primary', 'Reservado'],
+    'ARRENDADO' => ['danger', 'Arrendado'],
+    'MANTENIMIENTO' => ['secondary', 'Mantenimiento'],
 ];
 $badge = $badges[$inmueble['estado']] ?? ['success', 'Disponible'];
 $tituloInmueble = $inmueble['titulo'] ?? 'Apartamento Chapinero';

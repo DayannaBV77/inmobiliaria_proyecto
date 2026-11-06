@@ -55,7 +55,7 @@ class InmuebleController
         $areaM2 = (float) ($_POST['area_m2'] ?? 0);
 
         $tiposValidos = ['apartamento', 'casa', 'local', 'bodega'];
-        $estadosValidos = ['DISPONIBLE', 'RESERVADO', 'ARRENDADO', 'MANTENIMIENTO'];
+        $estadosValidos = ['DISPONIBLE', 'EN_PROCESO_RESERVA', 'RESERVADO', 'ARRENDADO', 'MANTENIMIENTO'];
         $estado = strtoupper(trim($_POST['estado'] ?? 'DISPONIBLE'));
 
         if (

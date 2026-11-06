@@ -1,5 +1,7 @@
 <?php
 
+header('Content-Type: text/html; charset=UTF-8');
+
 // =============================================================================
 // FRONT CONTROLLER - Enrutador central MVC (PHP 8+, PDO, sin frameworks)
 // Esquemas de ruta soportados:
@@ -56,7 +58,7 @@ $controladoresPermitidos = [
     ],
     'publico' => [
         'clase' => PublicoController::class,
-        'acciones' => ['index', 'detalle'],
+        'acciones' => ['index', 'detalle', 'reservar', 'confirmar'],
     ],
 ];
 
@@ -89,6 +91,7 @@ $rutasAntiguas = [
 
 // Clasificación de acceso (además del RBAC dentro de cada controlador).
 $rutasPublicas = ['publico' => ['index', 'detalle'], 'auth' => ['login'], 'contrato' => ['verificar']];
+// reservar/confirmar son de 'publico' pero exigen sesión (lo valida PublicoController).
 $rutasProtegidas = ['inmueble', 'usuario', 'contrato', 'reporte'];
 
 $controller = strtolower(trim($_GET['controller'] ?? ''));
@@ -159,7 +162,7 @@ $controlador = match ($controller) {
 };
 
 // --- 6. Ejecución de la acción solicitada -----------------------------------
-if (in_array($action, ['detalle', 'editar', 'eliminar', 'pdf'], true)) {
+if (in_array($action, ['detalle', 'editar', 'eliminar', 'pdf', 'reservar', 'confirmar'], true)) {
     $controlador->{$action}((int) ($_GET['id'] ?? $_POST['id'] ?? 0));
 } elseif ($action === 'dashboard' && $controller === 'reporte') {
     $controlador->index();

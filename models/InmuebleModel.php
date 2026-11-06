@@ -4,6 +4,9 @@ require_once __DIR__ . '/../config/database.php';
 
 class InmuebleModel
 {
+    public const ESTADOS = ['DISPONIBLE', 'EN_PROCESO_RESERVA', 'RESERVADO', 'ARRENDADO', 'MANTENIMIENTO'];
+    public const VIGENCIA_RESERVA_HORAS = 24;
+
     private PDO $pdo;
 
     public function __construct(?PDO $pdo = null)
@@ -45,7 +48,7 @@ class InmuebleModel
         $where = [];
         $params = [];
 
-        $estadosValidos = ['DISPONIBLE', 'RESERVADO', 'ARRENDADO', 'MANTENIMIENTO'];
+        $estadosValidos = self::ESTADOS;
         $estado = strtoupper(trim($filtros['estado'] ?? ''));
         if ($estado !== '' && in_array($estado, $estadosValidos, true)) {
             $where[] = 'i.estado = :estado';
@@ -80,9 +83,139 @@ class InmuebleModel
         return $stmt->fetchAll();
     }
 
+    /**
+     * Libera reservas temporales vencidas (24 h) a DISPONIBLE.
+     * Se llama al inicio de cada visita al catálogo: expiración "automática"
+     * sin cron. Retorna cuántos inmuebles se liberaron.
+     */
+    public function expirarReservasVencidas(): int
+    {
+        $stmt = $this->pdo->prepare(
+            "UPDATE inmuebles
+             SET estado = 'DISPONIBLE', reserva_expira_at = NULL, reserva_usuario_id = NULL
+             WHERE estado = 'EN_PROCESO_RESERVA'
+               AND (reserva_expira_at <= NOW()
+                    OR (reserva_expira_at IS NULL AND updated_at <= NOW() - INTERVAL 24 HOUR))"
+        );
+        $stmt->execute();
+
+        return $stmt->rowCount();
+    }
+
+    /**
+     * Inicia una reserva temporal con bloqueo pesimista (ACID):
+     * BEGIN -> SELECT ... FOR UPDATE -> valida DISPONIBLE -> UPDATE -> COMMIT.
+     * Si otro usuario ya lo bloqueó o cambió el estado, ROLLBACK + conflicto.
+     * Retorna ['ok' => bool, 'motivo' => string, 'expira' => ?string].
+     */
+    public function iniciarReserva(int $inmuebleId, int $usuarioId): array
+    {
+        $this->pdo->beginTransaction();
+
+        try {
+            $stmt = $this->pdo->prepare('SELECT * FROM inmuebles WHERE id = :id FOR UPDATE');
+            $stmt->execute(['id' => $inmuebleId]);
+            $inmueble = $stmt->fetch();
+
+            if (!$inmueble) {
+                $this->pdo->rollBack();
+                return ['ok' => false, 'motivo' => 'no_encontrado', 'expira' => null];
+            }
+
+            // La fila está bloqueada: nadie más puede cambiarla hasta el COMMIT.
+            if ($inmueble['estado'] !== 'DISPONIBLE') {
+                $this->pdo->rollBack();
+                return ['ok' => false, 'motivo' => 'conflicto', 'expira' => null, 'estado_actual' => $inmueble['estado']];
+            }
+
+            $upd = $this->pdo->prepare(
+                "UPDATE inmuebles
+                 SET estado = 'EN_PROCESO_RESERVA',
+                     reserva_usuario_id = :usuario,
+                     reserva_expira_at = DATE_ADD(NOW(), INTERVAL 24 HOUR)
+                 WHERE id = :id AND estado = 'DISPONIBLE'"
+            );
+            $upd->execute(['usuario' => $usuarioId, 'id' => $inmuebleId]);
+
+            if ($upd->rowCount() !== 1) {
+                $this->pdo->rollBack();
+                return ['ok' => false, 'motivo' => 'conflicto', 'expira' => null];
+            }
+
+            $expira = $this->pdo->query("SELECT DATE_ADD(NOW(), INTERVAL 24 HOUR)")->fetchColumn();
+            $this->pdo->commit();
+
+            return ['ok' => true, 'motivo' => 'ok', 'expira' => $expira];
+        } catch (Throwable $e) {
+            if ($this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
+            throw $e;
+        }
+    }
+
+    /** Confirma la reserva (EN_PROCESO -> RESERVADO) si no venció y es el titular. */
+    public function confirmarReserva(int $inmuebleId, int $usuarioId, bool $esAdmin = false): array
+    {
+        $this->pdo->beginTransaction();
+
+        try {
+            $stmt = $this->pdo->prepare('SELECT * FROM inmuebles WHERE id = :id FOR UPDATE');
+            $stmt->execute(['id' => $inmuebleId]);
+            $inmueble = $stmt->fetch();
+
+            if (!$inmueble) {
+                $this->pdo->rollBack();
+                return ['ok' => false, 'motivo' => 'no_encontrado'];
+            }
+
+            if ($inmueble['estado'] !== 'EN_PROCESO_RESERVA') {
+                $this->pdo->rollBack();
+                return ['ok' => false, 'motivo' => 'conflicto', 'estado_actual' => $inmueble['estado']];
+            }
+
+            if (($inmueble['reserva_expira_at'] ?? null) !== null && strtotime($inmueble['reserva_expira_at']) <= time()) {
+                $lib = $this->pdo->prepare("UPDATE inmuebles SET estado = 'DISPONIBLE', reserva_expira_at = NULL, reserva_usuario_id = NULL WHERE id = :id");
+                $lib->execute(['id' => $inmuebleId]);
+                $this->pdo->commit();
+                return ['ok' => false, 'motivo' => 'expirada'];
+            }
+
+            if (!$esAdmin && (int) ($inmueble['reserva_usuario_id'] ?? 0) !== $usuarioId) {
+                $this->pdo->rollBack();
+                return ['ok' => false, 'motivo' => 'sin_permiso'];
+            }
+
+            $upd = $this->pdo->prepare("UPDATE inmuebles SET estado = 'RESERVADO', reserva_expira_at = NULL WHERE id = :id");
+            $upd->execute(['id' => $inmuebleId]);
+            $this->pdo->commit();
+
+            return ['ok' => true, 'motivo' => 'ok'];
+        } catch (Throwable $e) {
+            if ($this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
+            throw $e;
+        }
+    }
+
+    /** Cancela una reserva temporal (EN_PROCESO -> DISPONIBLE). */
+    public function cancelarReserva(int $inmuebleId, int $usuarioId, bool $esAdmin = false): bool
+    {
+        $stmt = $this->pdo->prepare(
+            "UPDATE inmuebles
+             SET estado = 'DISPONIBLE', reserva_expira_at = NULL, reserva_usuario_id = NULL
+             WHERE id = :id AND estado = 'EN_PROCESO_RESERVA' AND (reserva_usuario_id = :usuario OR :admin = 1)"
+        );
+        $stmt->execute(['id' => $inmuebleId, 'usuario' => $usuarioId, 'admin' => $esAdmin ? 1 : 0]);
+
+        return $stmt->rowCount() === 1;
+    }
+
     /** Catálogo público: solo inmuebles DISPONIBLE, con filtros de portal. */
     public function listarPublico(array $filtros = []): array
     {
+        $this->expirarReservasVencidas();
         $where = ["i.estado = 'DISPONIBLE'"];
         $params = [];
 
