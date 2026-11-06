@@ -149,6 +149,7 @@ CREATE TABLE `contratos` (
     `fecha_inicio` DATE NOT NULL COMMENT 'Fecha de inicio de vigencia del arrendamiento',
     `fecha_fin` DATE NOT NULL COMMENT 'Fecha de finalización o renovación contractual',
     `canon_mensual` DECIMAL(12,2) NOT NULL COMMENT 'Monto mensual pactado en el contrato (COP)',
+    `codigo_verificacion` VARCHAR(32) NULL COMMENT 'Llave única de verificación del contrato (formato HOUM-XXXXXXXXXXXX)',
     `estado` ENUM('ACTIVO', 'FINALIZADO', 'INCUMPLIDO') NOT NULL DEFAULT 'ACTIVO' COMMENT 'Estado jurídico del contrato',
     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -169,6 +170,7 @@ CREATE TABLE `contratos` (
         CHECK (`fecha_fin` >= `fecha_inicio`),
         
     -- Índices para reportes de vencimientos y auditoría de cartera
+    UNIQUE KEY `uq_contratos_codigo_verificacion` (`codigo_verificacion`),
     INDEX `idx_contratos_estado` (`estado`),
     INDEX `idx_contratos_periodo` (`fecha_inicio`, `fecha_fin`),
     INDEX `idx_contratos_arrendatario` (`arrendatario_id`)
